@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { AIOperation, ProjectFile, Projects, EditorSettings, ProjectSourceInfo } from './types';
 import { runAIAssistant } from './services/geminiService';
@@ -12,7 +11,7 @@ import ProjectExplorer from './components/ProjectExplorer';
 import ActivityBar from './components/ActivityBar';
 import SettingsPanel from './components/SettingsPanel';
 import Modal from './components/Modal';
-
+import { isPathTextFile } from './utils/fileHelpers';
 
 declare global {
   interface Window {
@@ -221,7 +220,8 @@ const App: React.FC = () => {
             if (entry.kind === 'file') {
                 const fileHandle = entry as FileSystemFileHandle;
                 const file = await fileHandle.getFile();
-                if (file.type.startsWith('text/') || file.type === 'application/json' || !file.type || file.type === '') {
+                // Use the more robust isPathTextFile utility
+                if (isPathTextFile(newPath, file.type)) {
                    const content = await file.text();
                    files.push({ path: newPath, content, isDirty: false });
                 }
