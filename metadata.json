@@ -1,0 +1,6 @@
+{
+  "name": "CyberEditor AI",
+  "description": "An AI-powered IDE with a cyberpunk aesthetic. Leverage the power of Gemini to generate, explain, refactor, and debug entire multi-file projects.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
