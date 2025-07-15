@@ -37,7 +37,7 @@ const githubFetch = async (url: string, token: string, options: RequestInit = {}
     const headers: HeadersInit = {
         ...options.headers,
         'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json',
+        'Accept': 'application/vnd.github.v3+json'
     };
     if (options.body) {
         headers['Content-Type'] = 'application/json';
@@ -45,7 +45,7 @@ const githubFetch = async (url: string, token: string, options: RequestInit = {}
 
     const response = await fetch(`${GITHUB_API_BASE}${url}`, {
         ...options,
-        headers,
+        headers
     });
 
     if (!response.ok) {
@@ -71,8 +71,8 @@ export const verifyToken = async (token: string): Promise<{ success: boolean; me
         const userResponse = await fetch(`${GITHUB_API_BASE}/user`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github.v3+json',
-            },
+                'Accept': 'application/vnd.github.v3+json'
+            }
         });
 
         if (userResponse.status === 401) {
@@ -97,6 +97,12 @@ export const verifyToken = async (token: string): Promise<{ success: boolean; me
         }
         
         const emails = await githubFetch('/user/emails', token);
+
+        // BUG FIX: Add null and array type check for emails
+        if (!emails || !Array.isArray(emails)) {
+            return { success: false, message: `Could not fetch user emails for '${userData.login}'. Please check your GitHub email settings.` };
+        }
+
         const primaryEmail = emails.find((e: any) => e.primary && e.verified);
 
         if (!primaryEmail) {
@@ -105,7 +111,7 @@ export const verifyToken = async (token: string): Promise<{ success: boolean; me
 
         const user = {
             name: userData.name || userData.login,
-            email: primaryEmail.email,
+            email: primaryEmail.email
         };
 
         return { success: true, message: `Token is valid for user '${user.name}'. Required 'repo' scope found.`, user };
@@ -165,7 +171,7 @@ export const commitFiles = async (
     const blobPromises = filesToCommit.map(file => 
         githubFetch(`/repos/${owner}/${repo}/git/blobs`, token, {
             method: 'POST',
-            body: JSON.stringify({ content: utf8_to_b64(file.content), encoding: 'base64' }),
+            body: JSON.stringify({ content: utf8_to_b64(file.content), encoding: 'base64' })
         })
     );
     const blobs = await Promise.all(blobPromises);
@@ -175,12 +181,12 @@ export const commitFiles = async (
         path: file.path,
         mode: '100644', // file mode
         type: 'blob',
-        sha: blobs[index].sha,
+        sha: blobs[index].sha
     }));
 
     const newTree = await githubFetch(`/repos/${owner}/${repo}/git/trees`, token, {
         method: 'POST',
-        body: JSON.stringify({ base_tree: baseTreeSha, tree }),
+        body: JSON.stringify({ base_tree: baseTreeSha, tree })
     });
 
     // 4. Create the new commit
@@ -191,14 +197,14 @@ export const commitFiles = async (
             tree: newTree.sha,
             parents: [baseCommitSha],
             author,
-            committer: author,
-        }),
+            committer: author
+        })
     });
 
     // 5. Update the branch reference to point to the new commit (effectively "pushing")
     await githubFetch(`/repos/${owner}/${repo}/git/refs/heads/${branch}`, token, {
         method: 'PATCH',
-        body: JSON.stringify({ sha: newCommit.sha }),
+        body: JSON.stringify({ sha: newCommit.sha })
     });
 
     return newCommit.sha;
