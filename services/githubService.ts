@@ -1,5 +1,5 @@
-
 import { ProjectFile, GithubUser } from '../types';
+import { isTextFileByPath } from '../utils/fileHelpers'; // Import the new utility
 
 const GITHUB_API_BASE = 'https://api.github.com';
 
@@ -61,13 +61,7 @@ const githubFetch = async (url: string, token: string, options: RequestInit = {}
     return response.json();
 };
 
-const isTextFile = (path: string): boolean => {
-    const textExtensions = [ '.txt', '.md', '.json', '.js', '.ts', '.tsx', '.jsx', '.html', '.css', '.scss', '.py', '.rb', '.java', '.c', '.cpp', '.h', '.cs', '.go', '.php', '.rs', '.swift', 'Dockerfile', '.yml', '.yaml', '.xml', '.toml', '.gitignore'];
-    const lowerPath = path.toLowerCase();
-    // Treat files with no extension as text files
-    if (!lowerPath.includes('.')) return true;
-    return textExtensions.some(ext => lowerPath.endsWith(ext));
-};
+// Removed the old `isTextFile` function from here
 
 export const verifyToken = async (token: string): Promise<{ success: boolean; message: string; user?: GithubUser }> => {
     if (!token) {
@@ -135,7 +129,7 @@ export const getRepoContents = async (owner: string, repo: string, token: string
     const treeData = await githubFetch(`/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`, token);
 
     const filePromises = treeData.tree
-        .filter((item: any) => item.type === 'blob' && isTextFile(item.path))
+        .filter((item: any) => item.type === 'blob' && isTextFileByPath(item.path)) // Use the shared utility
         .map(async (item: any) => {
             try {
                 const blobData = await githubFetch(`/repos/${owner}/${repo}/git/blobs/${item.sha}`, token);

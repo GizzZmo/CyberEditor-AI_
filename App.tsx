@@ -11,7 +11,7 @@ import ProjectExplorer from './components/ProjectExplorer';
 import ActivityBar from './components/ActivityBar';
 import SettingsPanel from './components/SettingsPanel';
 import Modal from './components/Modal';
-import { isPathTextFile } from './utils/fileHelpers';
+import { isTextFileByPathAndMime } from './utils/fileHelpers'; // Use the renamed utility
 
 declare global {
   interface Window {
@@ -221,7 +221,7 @@ const App: React.FC = () => {
                 const fileHandle = entry as FileSystemFileHandle;
                 const file = await fileHandle.getFile();
                 // Use the more robust isPathTextFile utility
-                if (isPathTextFile(newPath, file.type)) {
+                if (isTextFileByPathAndMime(newPath, file.type)) { // Renamed utility
                    const content = await file.text();
                    files.push({ path: newPath, content, isDirty: false });
                 }
