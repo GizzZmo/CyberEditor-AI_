@@ -1,5 +1,5 @@
 import { ProjectFile, GithubUser } from '../types';
-import { isTextFileByPath } from '../utils/fileHelpers'; // Import the new utility
+import { isTextFileByPath } from '../utils/fileHelpers';
 
 const GITHUB_API_BASE = 'https://api.github.com';
 
@@ -53,15 +53,12 @@ const githubFetch = async (url: string, token: string, options: RequestInit = {}
         throw new Error(errorData.message || `GitHub API request failed: ${response.statusText}`);
     }
     
-    // Handle responses with no content (e.g., 204)
     if (response.status === 204) {
         return null;
     }
 
     return response.json();
 };
-
-// Removed the old `isTextFile` function from here
 
 export const verifyToken = async (token: string): Promise<{ success: boolean; message: string; user?: GithubUser }> => {
     if (!token) {
@@ -98,7 +95,6 @@ export const verifyToken = async (token: string): Promise<{ success: boolean; me
         
         const emails = await githubFetch('/user/emails', token);
 
-        // BUG FIX: Add null and array type check for emails
         if (!emails || !Array.isArray(emails)) {
             return { success: false, message: `Could not fetch user emails for '${userData.login}'. Please check your GitHub email settings.` };
         }
@@ -135,7 +131,7 @@ export const getRepoContents = async (owner: string, repo: string, token: string
     const treeData = await githubFetch(`/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`, token);
 
     const filePromises = treeData.tree
-        .filter((item: any) => item.type === 'blob' && isTextFileByPath(item.path)) // Use the shared utility
+        .filter((item: any) => item.type === 'blob' && isTextFileByPath(item.path))
         .map(async (item: any) => {
             try {
                 const blobData = await githubFetch(`/repos/${owner}/${repo}/git/blobs/${item.sha}`, token);
@@ -163,11 +159,9 @@ export const commitFiles = async (
     token: string,
     author: GithubUser
 ) => {
-    // 1. Get the tree SHA from the base commit to use as the base for the new tree
     const commitData = await githubFetch(`/repos/${owner}/${repo}/git/commits/${baseCommitSha}`, token);
     const baseTreeSha = commitData.tree.sha;
 
-    // 2. Create a blob for each file that is being changed
     const blobPromises = filesToCommit.map(file => 
         githubFetch(`/repos/${owner}/${repo}/git/blobs`, token, {
             method: 'POST',
@@ -176,10 +170,9 @@ export const commitFiles = async (
     );
     const blobs = await Promise.all(blobPromises);
 
-    // 3. Create a new tree with the new file blobs
     const tree = filesToCommit.map((file, index) => ({
         path: file.path,
-        mode: '100644', // file mode
+        mode: '100644',
         type: 'blob',
         sha: blobs[index].sha
     }));
@@ -189,7 +182,6 @@ export const commitFiles = async (
         body: JSON.stringify({ base_tree: baseTreeSha, tree })
     });
 
-    // 4. Create the new commit
     const newCommit = await githubFetch(`/repos/${owner}/${repo}/git/commits`, token, {
         method: 'POST',
         body: JSON.stringify({
@@ -201,7 +193,6 @@ export const commitFiles = async (
         })
     });
 
-    // 5. Update the branch reference to point to the new commit (effectively "pushing")
     await githubFetch(`/repos/${owner}/${repo}/git/refs/heads/${branch}`, token, {
         method: 'PATCH',
         body: JSON.stringify({ sha: newCommit.sha })

@@ -1,4 +1,3 @@
-
 export enum AIOperation {
   EXPLAIN = 'EXPLAIN',
   REFACTOR = 'REFACTOR',
@@ -47,3 +46,13 @@ export type InMemoryProjectSource = {
 }
 
 export type ProjectSourceInfo = LocalProjectSource | GitHubProjectSource | InMemoryProjectSource;
+
+export type ModalConfig = {
+    type: 'prompt' | 'confirm' | 'alert';
+    title: string;
+    message: React.ReactNode;
+    inputLabel?: string;
+    defaultValue?: string;
+    onConfirm: (value?: string) => void;
+    onCancel?: () => void;
+};

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { AIOperation, ProjectFile, Projects, EditorSettings, ProjectSourceInfo } from './types';
+import { AIOperation, ProjectFile, Projects, EditorSettings, ProjectSourceInfo, ModalConfig } from './types';
 import { runAIAssistant } from './services/geminiService';
 import * as githubService from './services/githubService';
 import Header from './components/Header';
@@ -11,29 +11,8 @@ import ProjectExplorer from './components/ProjectExplorer';
 import ActivityBar from './components/ActivityBar';
 import SettingsPanel from './components/SettingsPanel';
 import Modal from './components/Modal';
-import { isTextFileByPathAndMime } from './utils/fileHelpers'; // Use the renamed utility
-
-declare global {
-  interface Window {
-    showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
-  }
-  // Add types for File System Access API handles
-  interface FileSystemHandle {
-    readonly kind: 'file' | 'directory';
-    readonly name: string;
-  }
-  interface FileSystemFileHandle extends FileSystemHandle {
-    readonly kind: 'file';
-    getFile: () => Promise<File>;
-    createWritable: (options?: { keepExistingData?: boolean }) => Promise<FileSystemWritableFileStream>;
-  }
-  interface FileSystemDirectoryHandle extends FileSystemHandle {
-    readonly kind: 'directory';
-    values: () => AsyncIterableIterator<FileSystemHandle>;
-    getDirectoryHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemDirectoryHandle>;
-    getFileHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemFileHandle>;
-  }
-}
+import ModalController from './components/ModalController';
+import { isTextFileByPathAndMime, saveFileToDisk } from './utils/fileHelpers';
 
 const initialProject: ProjectFile[] = [
     {
@@ -79,16 +58,6 @@ const getInitialSettings = (): EditorSettings => {
     return { theme: 'cyan', githubToken: null, githubUser: null };
 };
 
-type ModalConfig = {
-    type: 'prompt' | 'confirm' | 'alert';
-    title: string;
-    message: React.ReactNode;
-    inputLabel?: string;
-    defaultValue?: string;
-    onConfirm: (value?: string) => void;
-    onCancel?: () => void;
-};
-
 const App: React.FC = () => {
   const [projects, setProjects] = useState<Projects>(getInitialProjects);
   const [activeProjectName, setActiveProjectName] = useState<string | null>(Object.keys(projects)[0] || null);
@@ -106,7 +75,17 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<EditorSettings>(getInitialSettings);
   const [modalConfig, setModalConfig] = useState<ModalConfig | null>(null);
 
-  const closeModal = () => setModalConfig(null);
+  const closeModal = useCallback(() => setModalConfig(null), []);
+
+  // Helper to show errors in modals
+  const showModalError = useCallback((title: string, message: string) => {
+    setModalConfig({
+      type: 'alert',
+      title: title,
+      message: <span className="text-red-400">{message}</span>,
+      onConfirm: closeModal,
+    });
+  }, [closeModal]);
 
   useEffect(() => { if (window.self !== window.top) setIsSandboxed(true); }, []);
   useEffect(() => { try { localStorage.setItem('cyber-editor-projects', JSON.stringify(projects)); } catch (e) { console.error("Failed to save projects to localStorage", e); } }, [projects]);
@@ -137,7 +116,7 @@ const App: React.FC = () => {
         onConfirm: (projectName) => {
             if (!projectName) return;
             if (projects[projectName]) {
-                setModalConfig(prev => ({ ...prev!, message: <span className="text-red-400">A project with this name already exists.</span> }));
+                showModalError('New Project', `A project with this name "${projectName}" already exists.`);
                 return;
             }
             const newProjectFiles = [{ path: 'README.md', content: `# ${projectName}\n\nStart your project here.`, isDirty: false }];
@@ -174,18 +153,6 @@ const App: React.FC = () => {
     });
   };
   
-  const saveFileToDisk = async (dirHandle: FileSystemDirectoryHandle, path: string, content: string): Promise<void> => {
-    const pathParts = path.split('/');
-    const fileName = pathParts.pop();
-    if (!fileName) throw new Error(`Invalid file path: ${path}`);
-    let currentDirHandle = dirHandle;
-    for (const part of pathParts) { currentDirHandle = await currentDirHandle.getDirectoryHandle(part, { create: true }); }
-    const fileHandle = await currentDirHandle.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
-  };
-  
   const handleSaveActiveFile = async () => {
     if (!activeProjectName || !activeFile || !activeFile.isDirty || activeProjectSource?.type !== 'local') return;
     setIsLoading(true);
@@ -206,7 +173,7 @@ const App: React.FC = () => {
 
   const handleOpenFolder = async () => {
     if (!window.showDirectoryPicker) { 
-      setModalConfig({ type: 'alert', title: 'Unsupported Browser', message: 'Your browser does not support the File System Access API.', onConfirm: closeModal });
+      showModalError('Unsupported Browser', 'Your browser does not support the File System Access API.');
       return; 
     }
     try {
@@ -220,8 +187,7 @@ const App: React.FC = () => {
             if (entry.kind === 'file') {
                 const fileHandle = entry as FileSystemFileHandle;
                 const file = await fileHandle.getFile();
-                // Use the more robust isPathTextFile utility
-                if (isTextFileByPathAndMime(newPath, file.type)) { // Renamed utility
+                if (isTextFileByPathAndMime(newPath, file.type)) {
                    const content = await file.text();
                    files.push({ path: newPath, content, isDirty: false });
                 }
@@ -258,7 +224,7 @@ const App: React.FC = () => {
 
   const handleImportFromGithub = async () => {
     if (!settings.githubToken) {
-        setModalConfig({ type: 'alert', title: 'GitHub Token Missing', message: 'Please set your GitHub Personal Access Token in Settings first.', onConfirm: closeModal });
+        showModalError('GitHub Token Missing', 'Please set your GitHub Personal Access Token in Settings first.');
         return;
     }
     setModalConfig({
@@ -267,7 +233,7 @@ const App: React.FC = () => {
             if (!repoPath) return;
             const [owner, repo] = repoPath.split('/');
             if (!owner || !repo) {
-                setModalConfig(prev => ({ ...prev!, message: <span className="text-red-400">Invalid format. Use 'owner/repo'.</span> }));
+                showModalError('Import from GitHub', "Invalid format. Use 'owner/repo'.");
                 return;
             }
             
@@ -311,12 +277,10 @@ const App: React.FC = () => {
     if (activeProjectSource?.type !== 'github' || !activeProjectName) return;
 
     if (!settings.githubUser || !settings.githubUser.name || !settings.githubUser.email) {
-        setModalConfig({
-            type: 'alert',
-            title: 'GitHub Identity Missing',
-            message: "Please go to Settings and use 'Verify Token' to fetch your user information before committing.",
-            onConfirm: closeModal
-        });
+        showModalError(
+            'GitHub Identity Missing',
+            "Please go to Settings and use 'Verify Token' to fetch your user information before committing."
+        );
         return;
     }
 
@@ -392,7 +356,7 @@ const App: React.FC = () => {
             onConfirm: (projectName) => {
                 if (!projectName) return;
                 if (projects[projectName]) {
-                    setModalConfig(prev => ({...prev!, message: <span className="text-red-400">A project named "{projectName}" already exists.</span>}));
+                    showModalError('Generate New Project', `A project named "${projectName}" already exists.`);
                     return;
                 }
                 setIsLoading(true);
@@ -461,61 +425,18 @@ const App: React.FC = () => {
       else { setError(msg); }
       setOutput('');
     } finally { setIsLoading(false); }
-  }, [activeProjectName, projects, activeFile, activeProjectFiles, projectSources, settings]);
+  }, [activeProjectName, projects, activeFile, activeProjectFiles, projectSources, settings, closeModal, showModalError]);
   
   const dirtyFilePaths = useMemo(() => new Set(activeProjectFiles.filter(f => f.isDirty).map(f => f.path)), [activeProjectFiles]);
   const isSaveDisabled = activeProjectSource?.type !== 'local' || dirtyFilePaths.size === 0;
   const isCommitDisabled = activeProjectSource?.type !== 'github' || dirtyFilePaths.size === 0;
-
-  const ModalController: React.FC = () => {
-    const [inputValue, setInputValue] = useState('');
-    useEffect(() => {
-        if (modalConfig) setInputValue(modalConfig.defaultValue || '');
-    }, [modalConfig]);
-    if (!modalConfig) return null;
-
-    const { type, message, inputLabel, onConfirm, onCancel } = modalConfig;
-
-    const handleConfirm = () => onConfirm(inputValue);
-    const handleCancel = () => { if (onCancel) onCancel(); else closeModal(); };
-    const handleKeydown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') { e.preventDefault(); handleConfirm(); }
-        if (e.key === 'Escape') { handleCancel(); }
-    };
-    
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="text-gray-200">{message}</div>
-            {type === 'prompt' && (
-                <div className="flex flex-col gap-2">
-                    {inputLabel && <label htmlFor="modal-input" className="text-sm text-[var(--accent-color-secondary)]">{inputLabel}</label>}
-                    <input
-                        id="modal-input" type="text" value={inputValue} onChange={e => setInputValue(e.target.value)}
-                        onKeyDown={handleKeydown} autoFocus
-                        className="w-full bg-black/50 border border-white/20 rounded-md p-2 text-white focus:outline-none focus:border-[var(--accent-color)] transition-colors"
-                    />
-                </div>
-            )}
-            <div className="flex gap-4 justify-end pt-4">
-                {(type === 'prompt' || type === 'confirm') && (
-                    <button onClick={handleCancel} className="p-2 px-4 bg-black/30 border border-gray-500 rounded-md text-gray-300 hover:bg-gray-500/20 hover:text-white transition-colors">
-                        Cancel
-                    </button>
-                )}
-                <button onClick={handleConfirm} className="p-2 px-6 bg-black/30 border border-[var(--accent-color-secondary)] rounded-md text-[var(--accent-color-secondary)] hover:bg-[var(--accent-color-secondary)]/20 hover:text-white transition-colors">
-                    {type === 'alert' ? 'OK' : 'Confirm'}
-                </button>
-            </div>
-        </div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-[#0d0221] text-[#f0f0f0] font-mono p-4 lg:p-6 relative flex flex-col">
       <div className="scanlines"></div><div className="noise"></div>
       
       <Modal isOpen={!!modalConfig} onClose={closeModal} title={modalConfig?.title || 'Dialog'}>
-        <ModalController />
+        <ModalController modalConfig={modalConfig} closeModal={closeModal} />
       </Modal>
 
       <Header />
