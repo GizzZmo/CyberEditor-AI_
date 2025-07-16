@@ -1,6 +1,6 @@
 # Run and deploy CyberEditor-AI_
 
-This contains everything you need to run your app locally.
+This contains everything you need to run CyberEditor-AI_ app locally.
 
 ## Run Locally
 
