@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { AIOperation, ProjectFile, Projects, EditorSettings, ProjectSourceInfo, ModalConfig } from './types';
-import { runAIAssistant } from './services/geminiService';
+import { runAIAssistant }s from './services/geminiService';
 import * as githubService from './services/githubService';
 import Header from './components/Header';
 import Editor from './components/Editor';
@@ -60,7 +60,7 @@ const getInitialSettings = (): EditorSettings => {
 
 const App: React.FC = () => {
   const [projects, setProjects] = useState<Projects>(getInitialProjects);
-  const [activeProjectName, setActiveProjectName] = useState<string | null>(Object.keys(projects)[0] || null);
+  const [activeProjectName, setActiveProjectName] = useState<string | null>(Object.keys(getInitialProjects())[0] || null);
   const [projectSources, setProjectSources] = useState<{ [projectName: string]: ProjectSourceInfo }>({'Welcome Project': {type: 'memory'}});
   
   const activeProjectFiles = useMemo(() => activeProjectName ? projects[activeProjectName] : [], [projects, activeProjectName]);
@@ -93,7 +93,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const files = activeProjectName ? projects[activeProjectName] : [];
     if (!files.some(f => f.path === activeFilePath)) setActiveFilePath(files.length > 0 ? files[0].path : null);
-  }, [activeProjectName, projects, activeFilePath]);
+  }, [activeProjectName, projects]); // Removed activeFilePath from dependencies
 
   const activeFile = useMemo(() => activeProjectFiles.find(f => f.path === activeFilePath) || null, [activeProjectFiles, activeFilePath]);
   
@@ -377,11 +377,12 @@ const App: React.FC = () => {
     let result = '';
 
     try {
-        if (!activeProjectName) {
-            setError("No active project selected for this operation.");
-            setIsLoading(false);
-            return;
-        }
+        // Original redundant check:
+        // if (!activeProjectName) {
+        //     setError("No active project selected for this operation.");
+        //     setIsLoading(false);
+        //     return;
+        // }
 
         result = await runAIAssistant(operation, activeProjectFiles, userRequest);
         const source = projectSources[activeProjectName];
