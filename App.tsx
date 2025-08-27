@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { AIOperation, ProjectFile, Projects, EditorSettings, ProjectSourceInfo, ModalConfig } from './types';
-import { runAIAssistant }s from './services/geminiService';
+import { runAIAssistant } from './services/geminiService';
 import * as githubService from './services/githubService';
 import Header from './components/Header';
 import Editor from './components/Editor';
