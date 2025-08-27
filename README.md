@@ -1,34 +1,80 @@
-# Run and deploy CyberEditor-AI_
+# CyberEditor AI
 
-This contains everything you need to run CyberEditor-AI_ app locally.
+[![CI](https://github.com/GizzZmo/CyberEditor-AI_/workflows/CI/badge.svg)](https://github.com/GizzZmo/CyberEditor-AI_/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Run Locally
+A web-based, AI-powered integrated development environment (IDE) that allows users to create, modify, and manage code projects. It leverages Google's Gemini AI for code generation, explanation, refactoring, and debugging, and integrates with GitHub for version control. Built with React and TypeScript, featuring a distinctive cyberpunk aesthetic.
 
-**Prerequisites:**  Node.js
+## ✨ Features
 
+- 🤖 **AI-Powered Development**: Code generation, explanation, refactoring, and debugging with Google Gemini AI
+- 📁 **Project Management**: Create, load, and manage multi-file projects
+- 🗂️ **File System Integration**: Read and write files directly to your local file system
+- 🔗 **GitHub Integration**: Import from and commit to GitHub repositories
+- 🎨 **Modern UI**: Cyberpunk-themed interface with dark mode
+- ⚡ **Fast Development**: Built with Vite for lightning-fast development and builds
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🚀 Quick Start
 
-This project, "CyberEditor AI", is a web-based, AI-powered integrated development environment (IDE) that allows users to create, modify, and manage code projects. It leverages Google's Gemini AI for code generation, explanation, refactoring, and debugging, and integrates with GitHub for version control. The application is built using React and TypeScript, providing a modern, responsive user interface with a distinctive cyberpunk aesthetic.
+### Prerequisites
 
----
+- **Node.js** (v18 or higher)
+- **Google Gemini API Key** ([Get one here](https://makersuite.google.com/app/apikey))
 
-## Project Overview
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/GizzZmo/CyberEditor-AI_.git
+   cd CyberEditor-AI_
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   
+   Create a `.env.local` file in the root directory:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+4. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser** and navigate to `http://localhost:5173`
+
+### Development Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run type-check` - Run TypeScript type checking
+
+## 🏗️ Project Overview
 
 ### Purpose
-The primary purpose of CyberEditor AI is to provide a user-friendly interface for interacting with a large language model (LLM) to perform various software development tasks directly within a browser. It acts as a "copilot" that can:
-1.  **Generate** new multi-file code projects from a high-level description (prompt).
-2.  **Explain** existing code, providing insights into its purpose and architecture.
-3.  **Refactor** code to improve its quality, performance, or maintainability.
-4.  **Debug** code by identifying and suggesting fixes for issues.
 
-Beyond AI capabilities, it offers basic IDE features like file browsing, code editing, and project management (creating, loading, deleting projects). It also supports reading and writing files to the local file system (via the File System Access API) and syncing with GitHub repositories.
+CyberEditor AI transforms your browser into a powerful development environment by combining the capabilities of a modern IDE with cutting-edge AI assistance. Whether you're a beginner learning to code or an experienced developer looking to accelerate your workflow, CyberEditor AI acts as your intelligent coding companion.
 
-### Architecture
+**Core AI Operations:**
+- 🏗️ **Generate**: Create complete multi-file projects from natural language descriptions
+- 📖 **Explain**: Get detailed explanations of code architecture and functionality  
+- 🔧 **Refactor**: Improve code quality, performance, and maintainability
+- 🐛 **Debug**: Identify and fix issues with intelligent suggestions
+
+**IDE Features:**
+- 📁 File and project management with intuitive navigation
+- ✏️ Code editing with syntax highlighting
+- 💾 Local file system integration (read/write directly to your disk)
+- 🔗 Seamless GitHub integration for version control
+- 🎨 Cyberpunk-themed interface with customizable themes
+
+### 🏗️ Architecture
 
 The project follows a client-side, single-page application (SPA) architecture, primarily built with React and TypeScript.
 
@@ -232,3 +278,95 @@ In summary, the architecture is a client-heavy web application that intelligentl
 *   **Role:** Provides utility functions related to file handling.
 *   **Functionality:**
     *   `isPathTextFile`: Determines if a given file `path` and `fileType` (MIME type) are likely to contain human-readable text content. This is used when importing files from the local file system or GitHub to avoid processing binary files. It has a comprehensive list of common text file extensions and checks MIME types.
+
+---
+
+## 🚀 Deployment
+
+CyberEditor AI is a client-side application that can be deployed to any static hosting service.
+
+### Deploy to Vercel
+
+1. Fork this repository
+2. Connect your GitHub account to [Vercel](https://vercel.com)
+3. Import your forked repository
+4. Add your `GEMINI_API_KEY` as an environment variable
+5. Deploy!
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FGizzZmo%2FCyberEditor-AI_)
+
+### Deploy to GitHub Pages
+
+1. Fork this repository
+2. Go to Settings > Pages in your GitHub repository
+3. Select "GitHub Actions" as the source
+4. Add your `GEMINI_API_KEY` as a repository secret in Settings > Secrets
+5. Push to main branch - automatic deployment will occur!
+
+### Deploy to Netlify
+
+1. Fork this repository
+2. Connect your GitHub account to [Netlify](https://netlify.com)
+3. Choose your forked repository
+4. Set build command to `npm run build` and publish directory to `dist`
+5. Add `GEMINI_API_KEY` to environment variables
+6. Deploy!
+
+### Manual Deployment
+
+```bash
+# Build the project
+npm run build
+
+# The dist/ folder contains all static files
+# Upload the contents to your hosting service
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our contributing guidelines below.
+
+### Development Setup
+
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/your-username/CyberEditor-AI_.git`
+3. Create a branch: `git checkout -b feature/amazing-feature`
+4. Install dependencies: `npm install`
+5. Set up your `.env.local` file with your Gemini API key
+6. Start development: `npm run dev`
+
+### Code Quality
+
+- Run type checking: `npm run type-check`
+- Build the project: `npm run build`
+- Follow existing code style and patterns
+- Test your changes thoroughly
+
+### Submitting Changes
+
+1. Commit your changes: `git commit -m 'Add amazing feature'`
+2. Push to your branch: `git push origin feature/amazing-feature`
+3. Open a Pull Request
+
+### Reporting Issues
+
+If you find a bug or have a feature request, please open an issue with:
+- Clear description of the problem or feature
+- Steps to reproduce (for bugs)
+- Expected vs actual behavior
+- Screenshots if applicable
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [React](https://reactjs.org/) and [TypeScript](https://www.typescriptlang.org/)
+- Powered by [Google Gemini AI](https://deepmind.google/technologies/gemini/)
+- Bundled with [Vite](https://vitejs.dev/)
+- Styled with [Tailwind CSS](https://tailwindcss.com/)
+
+---
+
+**Happy Coding! 🎉**
