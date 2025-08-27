@@ -115,7 +115,7 @@ export const runAIAssistant = async (operation: AIOperation, files: ProjectFile[
     try {
         const generationConfig = getOperationConfig(operation, files, userRequest);
         const response = await ai.models.generateContent(generationConfig);
-        return response.text;
+        return response.text || 'No response received from AI';
     } catch (error) {
         console.error("Error calling Gemini API:", error);
         if (error instanceof Error) {

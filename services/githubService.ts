@@ -34,11 +34,15 @@ const utf8_to_b64 = (str: string): string => {
 };
 
 const githubFetch = async (url: string, token: string, options: RequestInit = {}) => {
-    const headers: HeadersInit = {
-        ...options.headers,
+    const headers: Record<string, string> = {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github.v3+json'
     };
+    
+    if (options.headers) {
+        Object.assign(headers, options.headers);
+    }
+    
     if (options.body) {
         headers['Content-Type'] = 'application/json';
     }
