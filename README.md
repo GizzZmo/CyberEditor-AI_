@@ -295,6 +295,14 @@ CyberEditor AI is a client-side application that can be deployed to any static h
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FGizzZmo%2FCyberEditor-AI_)
 
+### Deploy to GitHub Pages
+
+1. Fork this repository
+2. Go to Settings > Pages in your GitHub repository
+3. Select "GitHub Actions" as the source
+4. Add your `GEMINI_API_KEY` as a repository secret in Settings > Secrets
+5. Push to main branch - automatic deployment will occur!
+
 ### Deploy to Netlify
 
 1. Fork this repository
