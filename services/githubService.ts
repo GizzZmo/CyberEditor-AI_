@@ -1,7 +1,8 @@
 import { ProjectFile, GithubUser } from '../types';
 import { isTextFileByPath } from '../utils/fileHelpers';
-
-const GITHUB_API_BASE = 'https://api.github.com';
+import { ErrorHandler, withErrorHandling } from '../src/utils/errorHandling';
+import { githubRateLimiter, validateGitHubToken, validateGitHubUrl } from '../src/utils/validation';
+import { API_CONFIG } from '../src/config/constants';
 
 /**
  * Decodes a Base64 string into a UTF-8 string.
@@ -29,28 +30,50 @@ const utf8_to_b64 = (str: string): string => {
         return btoa(unescape(encodeURIComponent(str)));
     } catch (e) {
         console.error("UTF-8 encoding to base64 failed", e);
-        throw new Error("Could not encode file content for commit.");
+        throw ErrorHandler.github("Could not encode file content for commit.");
     }
 };
 
 const githubFetch = async (url: string, token: string, options: RequestInit = {}) => {
+    // Rate limiting check
+    if (!githubRateLimiter.isAllowed()) {
+        const waitTime = Math.ceil(githubRateLimiter.getTimeUntilReset() / 1000);
+        throw ErrorHandler.rateLimit();
+    }
+
     const headers: HeadersInit = {
         ...options.headers,
         'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'Accept': API_CONFIG.GITHUB_ACCEPT_HEADER
     };
     if (options.body) {
         headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(`${GITHUB_API_BASE}${url}`, {
+    const response = await fetch(`${API_CONFIG.GITHUB_BASE_URL}${url}`, {
         ...options,
         headers
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `GitHub API request failed: ${response.statusText}` }));
-        throw new Error(errorData.message || `GitHub API request failed: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({ 
+            message: `GitHub API request failed: ${response.statusText}` 
+        }));
+        
+        if (response.status === 401) {
+            throw ErrorHandler.auth(errorData.message || 'GitHub authentication failed');
+        }
+        if (response.status === 403) {
+            throw ErrorHandler.auth('GitHub access forbidden. Check your token permissions.');
+        }
+        if (response.status === 404) {
+            throw ErrorHandler.github('Repository not found or access denied');
+        }
+        if (response.status === 429) {
+            throw ErrorHandler.rateLimit();
+        }
+        
+        throw ErrorHandler.github(errorData.message || `GitHub API error: ${response.statusText}`);
     }
     
     if (response.status === 204) {
@@ -60,15 +83,22 @@ const githubFetch = async (url: string, token: string, options: RequestInit = {}
     return response.json();
 };
 
-export const verifyToken = async (token: string): Promise<{ success: boolean; message: string; user?: GithubUser }> => {
+const verifyTokenInternal = async (token: string): Promise<{ success: boolean; message: string; user?: GithubUser }> => {
     if (!token) {
         return { success: false, message: 'Token cannot be empty.' };
     }
+
+    // Basic token format validation
+    const tokenValidation = validateGitHubToken(token);
+    if (!tokenValidation.valid) {
+        return { success: false, message: tokenValidation.error || 'Invalid token format' };
+    }
+
     try {
-        const userResponse = await fetch(`${GITHUB_API_BASE}/user`, {
+        const userResponse = await fetch(`${API_CONFIG.GITHUB_BASE_URL}/user`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
+                'Accept': API_CONFIG.GITHUB_ACCEPT_HEADER
             }
         });
 
@@ -120,7 +150,11 @@ export const verifyToken = async (token: string): Promise<{ success: boolean; me
     }
 };
 
-export const getRepoContents = async (owner: string, repo: string, token: string) => {
+const getRepoContentsInternal = async (owner: string, repo: string, token: string) => {
+    if (!owner || !repo) {
+        throw ErrorHandler.validation('Owner and repository name are required');
+    }
+
     const repoData = await githubFetch(`/repos/${owner}/${repo}`, token);
     const branch = repoData.default_branch || 'main';
 
@@ -149,7 +183,7 @@ export const getRepoContents = async (owner: string, repo: string, token: string
     return { files, latestCommitSha, branch };
 };
 
-export const commitFiles = async (
+const commitFilesInternal = async (
     owner: string,
     repo: string,
     branch: string,
@@ -159,6 +193,19 @@ export const commitFiles = async (
     token: string,
     author: GithubUser
 ) => {
+    if (!owner || !repo || !branch || !baseCommitSha || !commitMessage || !author) {
+        throw ErrorHandler.validation('All commit parameters are required');
+    }
+
+    if (!filesToCommit || filesToCommit.length === 0) {
+        throw ErrorHandler.validation('No files to commit');
+    }
+
+    // Validate commit message
+    if (commitMessage.trim().length === 0) {
+        throw ErrorHandler.validation('Commit message cannot be empty');
+    }
+
     const commitData = await githubFetch(`/repos/${owner}/${repo}/git/commits/${baseCommitSha}`, token);
     const baseTreeSha = commitData.tree.sha;
 
@@ -185,7 +232,7 @@ export const commitFiles = async (
     const newCommit = await githubFetch(`/repos/${owner}/${repo}/git/commits`, token, {
         method: 'POST',
         body: JSON.stringify({
-            message: commitMessage,
+            message: commitMessage.trim(),
             tree: newTree.sha,
             parents: [baseCommitSha],
             author,
@@ -200,3 +247,8 @@ export const commitFiles = async (
 
     return newCommit.sha;
 };
+
+// Export functions with error handling
+export const verifyToken = withErrorHandling(verifyTokenInternal, 'GitHub Token Verification');
+export const getRepoContents = withErrorHandling(getRepoContentsInternal, 'GitHub Repository Fetch');
+export const commitFiles = withErrorHandling(commitFilesInternal, 'GitHub Commit');

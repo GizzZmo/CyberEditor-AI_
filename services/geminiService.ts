@@ -1,12 +1,13 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIOperation, ProjectFile } from '../types';
+import { env } from '../src/config/environment';
+import { ErrorHandler, withErrorHandling } from '../src/utils/errorHandling';
+import { aiRateLimiter } from '../src/utils/validation';
+import { API_CONFIG } from '../src/config/constants';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize AI with secure environment handling
+const ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
 
 const formatProjectForPrompt = (files: ProjectFile[]): string => {
     if (files.length === 0) {
@@ -21,7 +22,7 @@ const getOperationConfig = (operation: AIOperation, files: ProjectFile[], userRe
     const projectContext = formatProjectForPrompt(files);
     let systemInstruction = "";
     let userPrompt = "";
-    let config: any = { model: 'gemini-2.5-flash' };
+    let config: any = { model: API_CONFIG.GEMINI_MODEL };
 
     switch (operation) {
         case AIOperation.EXPLAIN:
@@ -99,7 +100,7 @@ const getOperationConfig = (operation: AIOperation, files: ProjectFile[], userRe
             break;
 
         default:
-            throw new Error(`Unknown AI operation: ${operation}`);
+            throw ErrorHandler.validation(`Unknown AI operation: ${operation}`);
     }
 
     config.contents = userPrompt;
@@ -111,16 +112,35 @@ const getOperationConfig = (operation: AIOperation, files: ProjectFile[], userRe
     return config;
 };
 
-export const runAIAssistant = async (operation: AIOperation, files: ProjectFile[], userRequest: string): Promise<string> => {
+const runAIAssistantInternal = async (operation: AIOperation, files: ProjectFile[], userRequest: string): Promise<string> => {
+    // Rate limiting check
+    if (!aiRateLimiter.isAllowed()) {
+        const waitTime = Math.ceil(aiRateLimiter.getTimeUntilReset() / 1000);
+        throw ErrorHandler.rateLimit();
+    }
+
     try {
         const generationConfig = getOperationConfig(operation, files, userRequest);
         const response = await ai.models.generateContent(generationConfig);
+        
+        if (!response.text) {
+            throw ErrorHandler.aiService('Empty response from AI service');
+        }
+        
         return response.text;
     } catch (error) {
-        console.error("Error calling Gemini API:", error);
         if (error instanceof Error) {
-            throw new Error(`SYSTEM_ERROR: Failed to get response from AI: ${error.message}`);
+            if (error.message.includes('API key')) {
+                throw ErrorHandler.auth('Invalid or missing API key');
+            }
+            if (error.message.includes('quota') || error.message.includes('limit')) {
+                throw ErrorHandler.rateLimit();
+            }
+            throw ErrorHandler.aiService(`AI service error: ${error.message}`);
         }
-        throw new Error("SYSTEM_ERROR: An unknown error occurred while communicating with the AI.");
+        throw ErrorHandler.aiService('Unknown AI service error');
     }
 };
+
+// Export with error handling wrapper
+export const runAIAssistant = withErrorHandling(runAIAssistantInternal, 'AI Service');
